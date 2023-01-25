@@ -24,20 +24,20 @@ func main() {
 			AddEvent()
 		case strings.HasPrefix(input, "/findEvent"):
 			param := strings.Replace(input, "/findEvent -", "", 1)
-			if !StringInSlice(param, []string{"id", "name", "time", "duration", "description"}) {
+			if !StringInSlice(param, []string{"id", "name", "date", "time", "duration", "description"}) {
 				fmt.Println("Ошибка. Такого параметра нет")
 				break
 			}
-			FindEventId(param)
+			FindEvent(param)
 		}
 	}
 }
 
 // /addEvent Встреча 20.09.2000 02:30 Описание
 
-// /showEvent -id 1
-// /showEvent -myTime 2023-12-23T05:50:00
-// /showEvent -interval 2023-12-23T05:50:00 2023-12-23T05:55:00
+// /findEvent -id 1
+// /findEvent -myTime 2023-12-23T05:50:00
+// /findEvent -interval 2023-12-23T05:50:00 2023-12-23T05:55:00
 
 // /deleteEvent -id 1
 // /deleteEvent -myTime 2023-12-23T05:50:00

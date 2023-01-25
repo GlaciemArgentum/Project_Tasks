@@ -8,7 +8,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -21,6 +20,23 @@ type Event struct {
 	duration    string
 	description string
 }
+
+type Field struct {
+	name   string
+	ruName string
+	myType string
+	format string
+	err    string
+}
+
+var (
+	id          = Field{"id", "id", "string", `^[1-9][0-9]*$`, "id должно быть натуральным числом"}
+	name        = Field{"name", "Имя", "string", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
+	description = Field{"description", "Описание", "string", `^.{0,}$`, "Название должно содержать хотя бы один символ"}
+	duration    = Field{"duration", "Продолжительность", "time", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
+	oClock      = Field{"oClock", "Время", "time", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
+	date        = Field{"date", "Дата", "time", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
+)
 
 func CheckErr(err error, log string) bool {
 	if err != nil {
@@ -68,7 +84,7 @@ func AddEvent() {
 		panic("panic")
 	}
 
-	if event.name, flag = MyScan("Введите данные\nНазвание: ", "string", `^.{1,}$`, "Название должно содиржать хотя бы один символ"); flag == false {
+	if event.name, flag = MyScan("Введите данные\nНазвание: ", "string", `^.{1,}$`, "Название должно содержать хотя бы один символ"); flag == false {
 		return
 	}
 
@@ -95,10 +111,10 @@ func AddEvent() {
 	}
 }
 
-func FindEventId(param string) {
+func FindEvent(param string) {
 	var (
 		event Event
-		id    string
+		field string
 		flag  bool
 	)
 
@@ -113,12 +129,45 @@ func FindEventId(param string) {
 		panic("panic")
 	}
 
-	if id, flag = MyScan("Введите данные\nid: ", "string", `^[1-9][0-9]*$`, "id должно быть натуральным числом"); flag == false {
-		return
+	switch param {
+	case "name":
+		if field, flag = MyScan("Введите данные\nИмя: ", "string", `^.{0,}$`, ""); flag == false {
+			return
+		}
+	case "description":
+		if field, flag = MyScan("Введите данные\nОписание: ", "string", `^.{0,}$`, ""); flag == false {
+			return
+		}
+	case "id":
+		if field, flag = MyScan("Введите данные\nid: ", "string", `^[1-9][0-9]*$`, "id должно быть натуральным числом"); flag == false {
+			return
+		}
+	case "date":
+		if field, flag = MyScan("Введите данные\nДата: ", "time", "02.01.2006", "Неверный формат даты"); flag == false {
+			return
+		}
+	case "duration":
+		if field, flag = MyScan("Введите данные\nПродолжительность: ", "time", "15:04", "Неверный формат продолжительности"); flag == false {
+			return
+		}
+	case "time":
+		var date, oClock string
+		if date, flag = MyScan("Введите данные\nДата: ", "time", "02.01.2006", "Неверный формат даты"); flag == false {
+			return
+		}
+		if oClock, flag = MyScan("Введите данные\nВремя: ", "time", "15:04", "Неверный формат времени"); flag == false {
+			return
+		}
+		field = TimeToSQL(date, oClock)
 	}
-	event.id, _ = strconv.Atoi(id)
 
-	res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE id = %d", event.id))
+	/*
+		if field, flag = MyScan("Введите данные\nfield: ", "string", `^[1-9][0-9]*$`, "field должно быть натуральным числом"); flag == false {
+			return
+		}
+		event.id, _ = strconv.Atoi(field)
+
+		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE field = %d", event.id)) */
 	if !CheckErr(err, "Ошибка считывания из БД") {
 		return
 	}
