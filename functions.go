@@ -8,6 +8,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -24,18 +25,18 @@ type Event struct {
 type Field struct {
 	name   string
 	ruName string
-	myType string
+	param  string
 	format string
 	err    string
 }
 
 var (
-	id          = Field{"id", "id", "string", `^[1-9][0-9]*$`, "id должно быть натуральным числом"}
-	name        = Field{"name", "Имя", "string", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
-	description = Field{"description", "Описание", "string", `^.{0,}$`, "Название должно содержать хотя бы один символ"}
-	duration    = Field{"duration", "Продолжительность", "time", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
-	oClock      = Field{"oClock", "Время", "time", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
-	date        = Field{"date", "Дата", "time", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
+	fieldId          = Field{"id", "id", "string", `^[1-9][0-9]*$`, "id должен быть натуральным числом"}
+	fieldName        = Field{"name", "Имя", "string", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
+	fieldDescription = Field{"description", "Описание", "string", `^.{0,}$`, ""}
+	fieldDuration    = Field{"duration", "Продолжительность", "time", "15:04", "Неверный формат продолжительности"}
+	fieldOClock      = Field{"oClock", "Время", "time", "15:04", "Неверный формат времени"}
+	fieldDate        = Field{"date", "Дата", "time", "02.01.2006", "Неверный формат даты"}
 )
 
 func CheckErr(err error, log string) bool {
@@ -55,12 +56,12 @@ func CheckFormat(str, param, format, log string) bool {
 	return true
 }
 
-func MyScan(log, param, format, errLogic string) (string, bool) {
+func MyScan(field Field) (string, bool) {
 	in := bufio.NewReader(os.Stdin)
-	fmt.Print(log)
+	fmt.Print(fmt.Sprintf("%s: ", field.ruName))
 	str, err := in.ReadString('\n')
 	str = strings.ReplaceAll(str, "\n", "")
-	if !CheckErr(err, "Ошибка чтения in.ReadString") || !CheckFormat(str, param, format, errLogic) {
+	if !CheckErr(err, "Ошибка чтения in.ReadString") || !CheckFormat(str, field.param, field.format, field.err) {
 		return "", false
 	}
 	return str, true
@@ -84,24 +85,26 @@ func AddEvent() {
 		panic("panic")
 	}
 
-	if event.name, flag = MyScan("Введите данные\nНазвание: ", "string", `^.{1,}$`, "Название должно содержать хотя бы один символ"); flag == false {
+	fmt.Println("Введите данные")
+
+	if event.name, flag = MyScan(fieldName); flag == false {
 		return
 	}
 
-	if date, flag = MyScan("Дата: ", "time", "02.01.2006", "Неверный формат даты"); flag == false {
+	if date, flag = MyScan(fieldDate); flag == false {
 		return
 	}
-	if oClock, flag = MyScan("Время: ", "time", "15:04", "Неверный формат времени"); flag == false {
+	if oClock, flag = MyScan(fieldOClock); flag == false {
 		return
 	}
 	event.myTime = TimeToSQL(date, oClock)
 
-	if event.duration, flag = MyScan("Продолжительность: ", "time", "15:04", "Неверный формат продолжительности"); flag == false {
+	if event.duration, flag = MyScan(fieldDuration); flag == false {
 		return
 	}
 	event.duration += ":00"
 
-	if event.description, flag = MyScan("Описание: ", "string", `^.{0,}$`, " "); flag == false {
+	if event.description, flag = MyScan(fieldDescription); flag == false {
 		return
 	}
 
@@ -114,7 +117,7 @@ func AddEvent() {
 func FindEvent(param string) {
 	var (
 		event Event
-		field string
+		value string
 		flag  bool
 	)
 
@@ -129,45 +132,130 @@ func FindEvent(param string) {
 		panic("panic")
 	}
 
+	fmt.Println("Введите данные")
+
 	switch param {
 	case "name":
-		if field, flag = MyScan("Введите данные\nИмя: ", "string", `^.{0,}$`, ""); flag == false {
+		if value, flag = MyScan(fieldName); flag == false {
 			return
 		}
 	case "description":
-		if field, flag = MyScan("Введите данные\nОписание: ", "string", `^.{0,}$`, ""); flag == false {
-			return
-		}
-	case "id":
-		if field, flag = MyScan("Введите данные\nid: ", "string", `^[1-9][0-9]*$`, "id должно быть натуральным числом"); flag == false {
+		if value, flag = MyScan(fieldDescription); flag == false {
 			return
 		}
 	case "date":
-		if field, flag = MyScan("Введите данные\nДата: ", "time", "02.01.2006", "Неверный формат даты"); flag == false {
+		if value, flag = MyScan(fieldDate); flag == false {
 			return
 		}
+		sliceValue := strings.Split(value, ".")
+		value = sliceValue[2] + "-" + sliceValue[1] + "-" + sliceValue[0]
+
+		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE DATE_FORMAT(time, '%%Y-%%m-%%d') = '%s' ORDER BY time", value))
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
 	case "duration":
-		if field, flag = MyScan("Введите данные\nПродолжительность: ", "time", "15:04", "Неверный формат продолжительности"); flag == false {
+		if value, flag = MyScan(fieldDuration); flag == false {
 			return
 		}
+		value += ":00"
 	case "time":
 		var date, oClock string
-		if date, flag = MyScan("Введите данные\nДата: ", "time", "02.01.2006", "Неверный формат даты"); flag == false {
+		if date, flag = MyScan(fieldDate); flag == false {
 			return
 		}
-		if oClock, flag = MyScan("Введите данные\nВремя: ", "time", "15:04", "Неверный формат времени"); flag == false {
+		if oClock, flag = MyScan(fieldOClock); flag == false {
 			return
 		}
-		field = TimeToSQL(date, oClock)
+		value = TimeToSQL(date, oClock)
+
+		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE time <= '%s' AND '%s' <= time + INTERVAL duration HOUR_SECOND ORDER BY time", value, value))
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
+	case "id":
+		if value, flag = MyScan(fieldId); flag == false {
+			return
+		}
+		event.id, _ = strconv.Atoi(value)
+
+		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE %s = %d", param, event.id))
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
+	case "interval":
+		var date1, date2 string
+
+		fmt.Println("Даты начала и конца интервала:")
+
+		if date1, flag = MyScan(fieldDate); flag == false {
+			return
+		}
+		if date2, flag = MyScan(fieldDate); flag == false {
+			return
+		}
+
+		time1, err := time.Parse("02.01.2006", date1)
+		if !CheckErr(err, "Ошибка time.Parse:") {
+			return
+		}
+		time2, err := time.Parse("02.01.2006", date2)
+		if !CheckErr(err, "Ошибка time.Parse:") {
+			return
+		}
+
+		if time1.After(time2) {
+			fmt.Println("Ошибка: дата начала интервала не может быть после даты конца")
+			return
+		}
+
+		sliceValue := strings.Split(date1, ".")
+		date1 = sliceValue[2] + "-" + sliceValue[1] + "-" + sliceValue[0] + " 00:00:00"
+		sliceValue = strings.Split(date2, ".")
+		date2 = sliceValue[2] + "-" + sliceValue[1] + "-" + sliceValue[0] + " 23:59:59"
+
+		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE '%s' <= time AND time <= '%s' ORDER BY time", date1, date2))
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
+	case "all":
+		res, err := db.Query("SELECT * FROM table_of_events")
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
 	}
 
-	/*
-		if field, flag = MyScan("Введите данные\nfield: ", "string", `^[1-9][0-9]*$`, "field должно быть натуральным числом"); flag == false {
-			return
-		}
-		event.id, _ = strconv.Atoi(field)
-
-		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE field = %d", event.id)) */
+	res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE %s = '%s'", param, value))
 	if !CheckErr(err, "Ошибка считывания из БД") {
 		return
 	}

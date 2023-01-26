@@ -24,7 +24,7 @@ func main() {
 			AddEvent()
 		case strings.HasPrefix(input, "/findEvent"):
 			param := strings.Replace(input, "/findEvent -", "", 1)
-			if !StringInSlice(param, []string{"id", "name", "date", "time", "duration", "description"}) {
+			if !StringInSlice(param, []string{"id", "name", "date", "time", "duration", "description", "interval", "all"}) {
 				fmt.Println("Ошибка. Такого параметра нет")
 				break
 			}
