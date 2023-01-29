@@ -37,35 +37,8 @@ var (
 	fieldDuration    = Field{"duration", "Продолжительность", "time", "15:04", "Неверный формат продолжительности"}
 	fieldOClock      = Field{"oClock", "Время", "time", "15:04", "Неверный формат времени"}
 	fieldDate        = Field{"date", "Дата", "time", "02.01.2006", "Неверный формат даты"}
+	fieldDecide      = Field{"decide", "Вы уверены, что хотите удалить это событие (y/n)", "decide", "y n", "Неверный формат ответа: должен быть y/n"}
 )
-
-func CheckErr(err error, log string) bool {
-	if err != nil {
-		fmt.Println(fmt.Errorf("%s: %w", log, err))
-		return false
-	}
-	return true
-}
-
-func CheckFormat(str, param, format, log string) bool {
-	_, err := time.Parse(format, str)
-	if (param == "string" && !regexp.MustCompile(format).MatchString(str)) || (param == "time" && err != nil) {
-		fmt.Println(fmt.Errorf("%s", log))
-		return false
-	}
-	return true
-}
-
-func MyScan(field Field) (string, bool) {
-	in := bufio.NewReader(os.Stdin)
-	fmt.Print(fmt.Sprintf("%s: ", field.ruName))
-	str, err := in.ReadString('\n')
-	str = strings.ReplaceAll(str, "\n", "")
-	if !CheckErr(err, "Ошибка чтения in.ReadString") || !CheckFormat(str, field.param, field.format, field.err) {
-		return "", false
-	}
-	return str, true
-}
 
 func AddEvent() {
 	var (
@@ -108,7 +81,7 @@ func AddEvent() {
 		return
 	}
 
-	_, err = db.Exec(fmt.Sprintf("INSERT INTO table_of_events(time, duration, name, description) VALUES ('%s', '%s', '%s', '%s')", event.myTime, event.duration, event.name, event.description))
+	_, err = db.Exec("INSERT INTO table_of_events(time, duration, name, description) VALUES (?, ?, ?, ?)", event.myTime, event.duration, event.name, event.description)
 	if !CheckErr(err, "Ошибка добавления в БД") {
 		return
 	}
@@ -139,10 +112,32 @@ func FindEvent(param string) {
 		if value, flag = MyScan(fieldName); flag == false {
 			return
 		}
+
+		res, err := db.Query("SELECT * FROM table_of_events WHERE name = ?", value)
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
 	case "description":
 		if value, flag = MyScan(fieldDescription); flag == false {
 			return
 		}
+
+		res, err := db.Query("SELECT * FROM table_of_events WHERE description = ?", value)
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
 	case "date":
 		if value, flag = MyScan(fieldDate); flag == false {
 			return
@@ -150,7 +145,7 @@ func FindEvent(param string) {
 		sliceValue := strings.Split(value, ".")
 		value = sliceValue[2] + "-" + sliceValue[1] + "-" + sliceValue[0]
 
-		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE DATE_FORMAT(time, '%%Y-%%m-%%d') = '%s' ORDER BY time", value))
+		res, err := db.Query("SELECT * FROM table_of_events WHERE DATE_FORMAT(time, '%Y-%m-%d') = ? ORDER BY time", value)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
@@ -165,6 +160,17 @@ func FindEvent(param string) {
 			return
 		}
 		value += ":00"
+
+		res, err := db.Query("SELECT * FROM table_of_events WHERE duration = ?", value)
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+
+		if !PrintRows(res) {
+			return
+		}
+
+		return
 	case "time":
 		var date, oClock string
 		if date, flag = MyScan(fieldDate); flag == false {
@@ -175,7 +181,7 @@ func FindEvent(param string) {
 		}
 		value = TimeToSQL(date, oClock)
 
-		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE time <= '%s' AND '%s' <= time + INTERVAL duration HOUR_SECOND ORDER BY time", value, value))
+		res, err := db.Query("SELECT * FROM table_of_events WHERE time <= ? AND ? <= time + INTERVAL duration HOUR_SECOND ORDER BY time", value, value)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
@@ -191,7 +197,7 @@ func FindEvent(param string) {
 		}
 		event.id, _ = strconv.Atoi(value)
 
-		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE %s = %d", param, event.id))
+		res, err := db.Query("SELECT * FROM table_of_events WHERE id = ?", event.id)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
@@ -232,7 +238,7 @@ func FindEvent(param string) {
 		sliceValue = strings.Split(date2, ".")
 		date2 = sliceValue[2] + "-" + sliceValue[1] + "-" + sliceValue[0] + " 23:59:59"
 
-		res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE '%s' <= time AND time <= '%s' ORDER BY time", date1, date2))
+		res, err := db.Query("SELECT * FROM table_of_events WHERE ? <= time AND time <= ? ORDER BY time", date1, date2)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
@@ -254,8 +260,35 @@ func FindEvent(param string) {
 
 		return
 	}
+}
 
-	res, err := db.Query(fmt.Sprintf("SELECT * FROM table_of_events WHERE %s = '%s'", param, value))
+func DeleteEvent() {
+	var (
+		event  Event
+		value  string
+		flag   bool
+		decide string
+	)
+
+	db, err := sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/db")
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Ошибка закрытия БД: %v\n", err)
+		}
+	}(db)
+	if !CheckErr(err, "Ошибка открытия БД") {
+		panic("panic")
+	}
+
+	fmt.Println("Введите данные")
+
+	if value, flag = MyScan(fieldId); flag == false {
+		return
+	}
+	event.id, _ = strconv.Atoi(value)
+
+	res, err := db.Query("SELECT * FROM table_of_events WHERE id = ?", event.id)
 	if !CheckErr(err, "Ошибка считывания из БД") {
 		return
 	}
@@ -263,6 +296,49 @@ func FindEvent(param string) {
 	if !PrintRows(res) {
 		return
 	}
+
+	if decide, flag = MyScan(fieldDecide); flag == false {
+		return
+	}
+
+	if decide == "y" {
+		_, err = db.Exec("DELETE FROM table_of_events WHERE id = ?", event.id)
+		if !CheckErr(err, "Ошибка считывания из БД") {
+			return
+		}
+	}
+}
+
+func CheckErr(err error, log string) bool {
+	if err != nil {
+		fmt.Println(fmt.Errorf("%s: %w", log, err))
+		return false
+	}
+	return true
+}
+
+func CheckFormat(str, param, format, log string) bool {
+	_, err := time.Parse(format, str)
+	if (param == "string" && !regexp.MustCompile(format).MatchString(str)) || (param == "time" && err != nil) {
+		fmt.Println(fmt.Errorf("%s", log))
+		return false
+	}
+	if param == "decide" && !StringInSlice(str, strings.Split(format, " ")) {
+		fmt.Println(log)
+		return false
+	}
+	return true
+}
+
+func MyScan(field Field) (string, bool) {
+	in := bufio.NewReader(os.Stdin)
+	fmt.Print(fmt.Sprintf("%s: ", field.ruName))
+	str, err := in.ReadString('\n')
+	str = strings.ReplaceAll(str, "\n", "")
+	if !CheckErr(err, "Ошибка чтения in.ReadString") || !CheckFormat(str, field.param, field.format, field.err) {
+		return "", false
+	}
+	return str, true
 }
 
 func PrintRows(res *sql.Rows) bool {
@@ -275,6 +351,7 @@ func PrintRows(res *sql.Rows) bool {
 		return false
 	}
 
+	count := 0
 	for res.Next() {
 		err := res.Scan(&event.id, &event.myTime, &event.duration, &event.name, &event.description)
 		if !CheckErr(err, "Ошибка res.Scan") {
@@ -286,6 +363,11 @@ func PrintRows(res *sql.Rows) bool {
 		if !CheckErr(err, "Ошибка fmt.Fprintf") {
 			return false
 		}
+		count++
+	}
+	if count == 0 {
+		fmt.Println("Данные не найдены")
+		return false
 	}
 
 	err = w.Flush()

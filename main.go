@@ -29,6 +29,8 @@ func main() {
 				break
 			}
 			FindEvent(param)
+		case input == "/deleteEvent":
+			DeleteEvent()
 		}
 	}
 }
@@ -40,7 +42,6 @@ func main() {
 // /findEvent -interval 2023-12-23T05:50:00 2023-12-23T05:55:00
 
 // /deleteEvent -id 1
-// /deleteEvent -myTime 2023-12-23T05:50:00
 
 // /addList Список покупок
 
