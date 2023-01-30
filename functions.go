@@ -36,7 +36,7 @@ var (
 	fieldDescription = Field{"description", "Описание", "string", `^.{0,}$`, ""}
 	fieldDuration    = Field{"duration", "Продолжительность", "time", "15:04", "Ошибка: продолжтельность должна быть в формате hh:mm"}
 	fieldOClock      = Field{"oClock", "Время", "time", "15:04", "Ошибка: время должно быть в формате hh:mm"}
-	fieldDate        = Field{"date", "Дата", "time", "02.01.2006", "Ошибка: дата должна быть в формате dd:mm:yyyy"}
+	fieldDate        = Field{"date", "Дата", "time", "02.01.2006", "Ошибка: дата должна быть в формате DD:MM:YYYY"}
 	fieldDecide      = Field{"decide", "Подтвердите удаление (y/n)", "decide", "y n", "Ошибка: решение должно быть y/n"}
 	fieldListName    = Field{"listName", "Название списка", "string", `^.{1,}$`, "Ошибка: название списка должно содержать хотя бы один символ"}
 )
@@ -679,6 +679,3 @@ func StringInSlice(a string, list []string) bool {
 	}
 	return false
 }
-
-// Решить проблему при смене языка
-// Написать help
