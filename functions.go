@@ -31,13 +31,14 @@ type Field struct {
 }
 
 var (
-	fieldId          = Field{"id", "id", "string", `^[1-9][0-9]*$`, "id должен быть натуральным числом"}
-	fieldName        = Field{"name", "Имя", "string", `^.{1,}$`, "Название должно содержать хотя бы один символ"}
+	fieldId          = Field{"id", "id", "string", `^[1-9][0-9]*$`, "Ошибка: id должен быть натуральным числом"}
+	fieldName        = Field{"name", "Название", "string", `^.{1,}$`, "Ошибка: название должно содержать хотя бы один символ"}
 	fieldDescription = Field{"description", "Описание", "string", `^.{0,}$`, ""}
-	fieldDuration    = Field{"duration", "Продолжительность", "time", "15:04", "Неверный формат продолжительности"}
-	fieldOClock      = Field{"oClock", "Время", "time", "15:04", "Неверный формат времени"}
-	fieldDate        = Field{"date", "Дата", "time", "02.01.2006", "Неверный формат даты"}
-	fieldDecide      = Field{"decide", "Вы уверены, что хотите удалить это событие (y/n)", "decide", "y n", "Неверный формат ответа: должен быть y/n"}
+	fieldDuration    = Field{"duration", "Продолжительность", "time", "15:04", "Ошибка: продолжтельность должна быть в формате hh:mm"}
+	fieldOClock      = Field{"oClock", "Время", "time", "15:04", "Ошибка: время должно быть в формате hh:mm"}
+	fieldDate        = Field{"date", "Дата", "time", "02.01.2006", "Ошибка: дата должна быть в формате dd:mm:yyyy"}
+	fieldDecide      = Field{"decide", "Подтвердите удаление (y/n)", "decide", "y n", "Ошибка: решение должно быть y/n"}
+	fieldListName    = Field{"listName", "Название списка", "string", `^.{1,}$`, "Ошибка: название списка должно содержать хотя бы один символ"}
 )
 
 func AddEvent() {
@@ -81,13 +82,13 @@ func AddEvent() {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO table_of_events(time, duration, name, description) VALUES (?, ?, ?, ?)", event.myTime, event.duration, event.name, event.description)
+	_, err = db.Exec("INSERT INTO `table_of_events`(`time`, `duration`, `name`, `description`) VALUES (?, ?, ?, ?)", event.myTime, event.duration, event.name, event.description)
 	if !CheckErr(err, "Ошибка добавления в БД") {
 		return
 	}
 }
 
-func FindEvent(param string) {
+func ShowEvent(param string) {
 	var (
 		event Event
 		value string
@@ -113,27 +114,27 @@ func FindEvent(param string) {
 			return
 		}
 
-		res, err := db.Query("SELECT * FROM table_of_events WHERE name = ?", value)
+		res, err := db.Query("SELECT * FROM `table_of_events` WHERE name = ?", value)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
 		return
-	case "description":
+	case "desc":
 		if value, flag = MyScan(fieldDescription); flag == false {
 			return
 		}
 
-		res, err := db.Query("SELECT * FROM table_of_events WHERE description = ?", value)
+		res, err := db.Query("SELECT * FROM `table_of_events` WHERE `description` = ?", value)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
@@ -145,28 +146,28 @@ func FindEvent(param string) {
 		sliceValue := strings.Split(value, ".")
 		value = sliceValue[2] + "-" + sliceValue[1] + "-" + sliceValue[0]
 
-		res, err := db.Query("SELECT * FROM table_of_events WHERE DATE_FORMAT(time, '%Y-%m-%d') = ? ORDER BY time", value)
+		res, err := db.Query("SELECT * FROM `table_of_events` WHERE DATE_FORMAT(time, '%Y-%m-%d') = ? ORDER BY `time`", value)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
 		return
-	case "duration":
+	case "dur":
 		if value, flag = MyScan(fieldDuration); flag == false {
 			return
 		}
 		value += ":00"
 
-		res, err := db.Query("SELECT * FROM table_of_events WHERE duration = ?", value)
+		res, err := db.Query("SELECT * FROM `table_of_events` WHERE `duration` = ?", value)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
@@ -181,12 +182,12 @@ func FindEvent(param string) {
 		}
 		value = TimeToSQL(date, oClock)
 
-		res, err := db.Query("SELECT * FROM table_of_events WHERE time <= ? AND ? <= time + INTERVAL duration HOUR_SECOND ORDER BY time", value, value)
+		res, err := db.Query("SELECT * FROM `table_of_events` WHERE `time` <= ? AND ? <= `time` + INTERVAL `duration` HOUR_SECOND ORDER BY time", value, value)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
@@ -197,17 +198,17 @@ func FindEvent(param string) {
 		}
 		event.id, _ = strconv.Atoi(value)
 
-		res, err := db.Query("SELECT * FROM table_of_events WHERE id = ?", event.id)
+		res, err := db.Query("SELECT * FROM `table_of_events` WHERE `id` = ?", event.id)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
 		return
-	case "interval":
+	case "intv":
 		var date1, date2 string
 
 		fmt.Println("Даты начала и конца интервала:")
@@ -220,11 +221,11 @@ func FindEvent(param string) {
 		}
 
 		time1, err := time.Parse("02.01.2006", date1)
-		if !CheckErr(err, "Ошибка time.Parse:") {
+		if !CheckErr(err, "Ошибка функции time.Parse:") {
 			return
 		}
 		time2, err := time.Parse("02.01.2006", date2)
-		if !CheckErr(err, "Ошибка time.Parse:") {
+		if !CheckErr(err, "Ошибка функции time.Parse:") {
 			return
 		}
 
@@ -238,23 +239,23 @@ func FindEvent(param string) {
 		sliceValue = strings.Split(date2, ".")
 		date2 = sliceValue[2] + "-" + sliceValue[1] + "-" + sliceValue[0] + " 23:59:59"
 
-		res, err := db.Query("SELECT * FROM table_of_events WHERE ? <= time AND time <= ? ORDER BY time", date1, date2)
+		res, err := db.Query("SELECT * FROM `table_of_events` WHERE ? <= `time` AND `time` <= ? ORDER BY `time`", date1, date2)
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
 		return
 	case "all":
-		res, err := db.Query("SELECT * FROM table_of_events")
+		res, err := db.Query("SELECT * FROM `table_of_events`")
 		if !CheckErr(err, "Ошибка считывания из БД") {
 			return
 		}
 
-		if !PrintRows(res) {
+		if !PrintRowsEvent(res) {
 			return
 		}
 
@@ -288,12 +289,12 @@ func DeleteEvent() {
 	}
 	event.id, _ = strconv.Atoi(value)
 
-	res, err := db.Query("SELECT * FROM table_of_events WHERE id = ?", event.id)
+	res, err := db.Query("SELECT * FROM `table_of_events` WHERE `id` = ?", event.id)
 	if !CheckErr(err, "Ошибка считывания из БД") {
 		return
 	}
 
-	if !PrintRows(res) {
+	if !PrintRowsEvent(res) {
 		return
 	}
 
@@ -302,8 +303,255 @@ func DeleteEvent() {
 	}
 
 	if decide == "y" {
-		_, err = db.Exec("DELETE FROM table_of_events WHERE id = ?", event.id)
-		if !CheckErr(err, "Ошибка считывания из БД") {
+		_, err = db.Exec("DELETE FROM `table_of_events` WHERE `id` = ?", event.id)
+		if !CheckErr(err, "Ошибка удаления из БД") {
+			return
+		}
+	}
+}
+
+func AddList() {
+	var (
+		name string
+		flag bool
+	)
+
+	db, err := sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/db")
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Ошибка закрытия БД: %v\n", err)
+		}
+	}(db)
+	if !CheckErr(err, "Ошибка открытия БД") {
+		panic("panic")
+	}
+
+	fmt.Println("Введите данные")
+
+	if name, flag = MyScan(fieldName); flag == false {
+		return
+	}
+
+	_, err = db.Exec(fmt.Sprintf("CREATE TABLE `%s` (`id` INT(11) NOT NULL AUTO_INCREMENT, `name` VARCHAR(100) NOT NULL, `description` VARCHAR(100) NULL, PRIMARY KEY (`id`))", name))
+	if !CheckErr(err, "Ошибка создания БД") {
+		return
+	}
+}
+
+func ShowList() {
+	var (
+		name string
+		flag bool
+	)
+
+	db, err := sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/db")
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Ошибка закрытия БД: %v\n", err)
+		}
+	}(db)
+	if !CheckErr(err, "Ошибка открытия БД") {
+		panic("panic")
+	}
+
+	fmt.Println("Введите данные")
+
+	if name, flag = MyScan(fieldName); flag == false {
+		return
+	}
+
+	if name == "table_of_events" {
+		fmt.Println("Ошибка считывания из БД: нет доступа к данной таблице")
+		return
+	}
+
+	res, err := db.Query(fmt.Sprintf("SELECT * FROM `%s`", name))
+	if !CheckErr(err, "Ошибка считывания из БД") {
+		return
+	}
+
+	if !PrintRowsList(res) {
+		return
+	}
+}
+
+func ShowLists() {
+	var name string
+
+	db, err := sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/db")
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Ошибка закрытия БД: %v\n", err)
+		}
+	}(db)
+	if !CheckErr(err, "Ошибка открытия БД") {
+		panic("panic")
+	}
+
+	res, err := db.Query("SHOW TABLES")
+	if !CheckErr(err, "Ошибка считывания из БД") {
+		return
+	}
+
+	count := 0
+	for res.Next() {
+		err := res.Scan(&name)
+		if !CheckErr(err, "Ошибка функции res.Scan") {
+			continue
+		}
+		if name == "table_of_events" {
+			continue
+		}
+		fmt.Println(name)
+		if !CheckErr(err, "Ошибка функции fmt.Fprintf") {
+			return
+		}
+		count++
+	}
+	if count == 0 {
+		fmt.Println("Данные не найдены")
+		return
+	}
+}
+
+func DeleteList() {
+	var (
+		name   string
+		flag   bool
+		decide string
+	)
+
+	db, err := sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/db")
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Ошибка закрытия БД: %v\n", err)
+		}
+	}(db)
+	if !CheckErr(err, "Ошибка открытия БД") {
+		panic("panic")
+	}
+
+	fmt.Println("Введите данные")
+
+	if name, flag = MyScan(fieldName); flag == false {
+		return
+	}
+
+	if name == "table_of_events" {
+		fmt.Println("Ошибка считывания из БД: нет доступа к данной таблице")
+		return
+	}
+
+	res, err := db.Query(fmt.Sprintf("SELECT * FROM `%s`", name))
+	if !CheckErr(err, "Ошибка считывания из БД") {
+		return
+	}
+
+	if !PrintRowsList(res) {
+		return
+	}
+
+	if decide, flag = MyScan(fieldDecide); flag == false {
+		return
+	}
+
+	if decide == "y" {
+		_, err = db.Exec(fmt.Sprintf("DROP TABLE `%s`", name))
+		if !CheckErr(err, "Ошибка удаления БД") {
+			return
+		}
+	}
+}
+
+func AddPurch() {
+	var (
+		event    Event
+		flag     bool
+		listName string
+	)
+
+	db, err := sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/db")
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Ошибка закрытия БД: %v\n", err)
+		}
+	}(db)
+	if !CheckErr(err, "Ошибка открытия БД") {
+		panic("panic")
+	}
+
+	fmt.Println("Введите данные")
+
+	if listName, flag = MyScan(fieldListName); flag == false {
+		return
+	}
+
+	if event.name, flag = MyScan(fieldName); flag == false {
+		return
+	}
+
+	if event.description, flag = MyScan(fieldDescription); flag == false {
+		return
+	}
+
+	_, err = db.Exec(fmt.Sprintf("INSERT INTO `%s`(`name`, `description`) VALUES (?, ?)", listName), event.name, event.description)
+	if !CheckErr(err, "Ошибка добавления в БД") {
+		return
+	}
+}
+
+func DeletePurch() {
+	var (
+		listName string
+		event    Event
+		value    string
+		flag     bool
+		decide   string
+	)
+
+	db, err := sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/db")
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("Ошибка закрытия БД: %v\n", err)
+		}
+	}(db)
+	if !CheckErr(err, "Ошибка открытия БД") {
+		panic("panic")
+	}
+
+	fmt.Println("Введите данные")
+
+	if listName, flag = MyScan(fieldListName); flag == false {
+		return
+	}
+
+	if value, flag = MyScan(fieldId); flag == false {
+		return
+	}
+	event.id, _ = strconv.Atoi(value)
+
+	res, err := db.Query(fmt.Sprintf("SELECT * FROM `%s` WHERE `id` = ?", listName), event.id)
+	if !CheckErr(err, "Ошибка считывания из БД") {
+		return
+	}
+
+	if !PrintRowsList(res) {
+		return
+	}
+
+	if decide, flag = MyScan(fieldDecide); flag == false {
+		return
+	}
+
+	if decide == "y" {
+		_, err = db.Exec(fmt.Sprintf("DELETE FROM `%s` WHERE `id` = ?", listName), event.id)
+		if !CheckErr(err, "Ошибка удаления из БД") {
 			return
 		}
 	}
@@ -341,26 +589,26 @@ func MyScan(field Field) (string, bool) {
 	return str, true
 }
 
-func PrintRows(res *sql.Rows) bool {
+func PrintRowsEvent(res *sql.Rows) bool {
 	var event Event
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 3, ' ', 0)
 
 	_, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n", "id", "name", "date", "time", "duration", "description")
-	if !CheckErr(err, "Ошибка fmt.Fprintf") {
+	if !CheckErr(err, "Ошибка функции fmt.Fprintf") {
 		return false
 	}
 
 	count := 0
 	for res.Next() {
 		err := res.Scan(&event.id, &event.myTime, &event.duration, &event.name, &event.description)
-		if !CheckErr(err, "Ошибка res.Scan") {
+		if !CheckErr(err, "Ошибка функции res.Scan") {
 			continue
 		}
 		date, oClock := TimeFromSQL(event.myTime)
 		event.duration = strings.Replace(event.duration, ":00", "", 1)
 		_, err = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t\n", event.id, event.name, date, oClock, event.duration, event.description)
-		if !CheckErr(err, "Ошибка fmt.Fprintf") {
+		if !CheckErr(err, "Ошибка функции fmt.Fprintf") {
 			return false
 		}
 		count++
@@ -371,7 +619,36 @@ func PrintRows(res *sql.Rows) bool {
 	}
 
 	err = w.Flush()
-	if !CheckErr(err, "Ошибка w.Flush") {
+	if !CheckErr(err, "Ошибка функции w.Flush") {
+		return false
+	}
+
+	return true
+}
+
+func PrintRowsList(res *sql.Rows) bool {
+	var event Event
+
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 3, ' ', 0)
+
+	_, err := fmt.Fprintf(w, "%s\t%s\t%s\t\n", "id", "name", "description")
+	if !CheckErr(err, "Ошибка функции fmt.Fprintf") {
+		return false
+	}
+
+	for res.Next() {
+		err := res.Scan(&event.id, &event.name, &event.description)
+		if !CheckErr(err, "Ошибка функции res.Scan") {
+			continue
+		}
+		_, err = fmt.Fprintf(w, "%d\t%s\t%s\t\n", event.id, event.name, event.description)
+		if !CheckErr(err, "Ошибка функции fmt.Fprintf") {
+			return false
+		}
+	}
+
+	err = w.Flush()
+	if !CheckErr(err, "Ошибка функции w.Flush") {
 		return false
 	}
 
@@ -402,3 +679,6 @@ func StringInSlice(a string, list []string) bool {
 	}
 	return false
 }
+
+// Решить проблему при смене языка
+// Написать help

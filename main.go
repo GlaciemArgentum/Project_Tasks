@@ -20,39 +20,35 @@ func main() {
 		}
 
 		switch {
-		case input == "/addEvent":
+		case input == "evt add":
 			AddEvent()
-		case strings.HasPrefix(input, "/findEvent"):
-			param := strings.Replace(input, "/findEvent -", "", 1)
-			if !StringInSlice(param, []string{"id", "name", "date", "time", "duration", "description", "interval", "all"}) {
+		case strings.HasPrefix(input, "evt shw"):
+			param := strings.Replace(input, "evt shw ", "", 1)
+			if !StringInSlice(param, []string{"id", "name", "date", "time", "dur", "desc", "intv", "all"}) {
 				fmt.Println("Ошибка. Такого параметра нет")
 				break
 			}
-			FindEvent(param)
-		case input == "/deleteEvent":
+			ShowEvent(param)
+		case input == "evt dlt":
 			DeleteEvent()
+		case input == "lst add":
+			AddList()
+		case input == "lst shw":
+			ShowList()
+		case input == "lsts shw":
+			ShowLists()
+		case input == "lst dlt":
+			DeleteList()
+		case input == "prch add":
+			AddPurch()
+		case input == "prch dlt":
+			DeletePurch()
+		case input == "ext":
+			fmt.Println("Программа завершена")
+			return
+		//case strings.HasPrefix(input, "help"):
+		default:
+			fmt.Printf("Команды '%s' не существует\nДля уточнения информации по командам введите 'help'\n", input)
 		}
 	}
 }
-
-// /addEvent Встреча 20.09.2000 02:30 Описание
-
-// /findEvent -id 1
-// /findEvent -myTime 2023-12-23T05:50:00
-// /findEvent -interval 2023-12-23T05:50:00 2023-12-23T05:55:00
-
-// /deleteEvent -id 1
-
-// /addList Список покупок
-
-// /addPurchase Список_покупок Покупка
-
-// /showList Список покупок
-
-// /deleteList Список покупок
-
-// /deletePurchase Список_покупок Покупка
-
-// /help
-
-// /finish
