@@ -30,6 +30,33 @@ type Field struct {
 	err    string
 }
 
+type (
+	HelpT struct {
+		evt  HelpEvent
+		lst  HelpList
+		prch HelpPurch
+		ext  HelpExit
+	}
+	HelpEvent struct {
+		add string
+		dlt string
+		shw string
+	}
+	HelpList struct {
+		add      string
+		dlt      string
+		shw      string
+		shwLists string
+	}
+	HelpPurch struct {
+		add string
+		dlt string
+	}
+	HelpExit struct {
+		ext string
+	}
+)
+
 var (
 	fieldId          = Field{"id", "id", "string", `^[1-9][0-9]*$`, "Ошибка: id должен быть натуральным числом"}
 	fieldName        = Field{"name", "Название", "string", `^.{1,}$`, "Ошибка: название должно содержать хотя бы один символ"}
@@ -40,6 +67,61 @@ var (
 	fieldDecide      = Field{"decide", "Подтвердите удаление (y/n)", "decide", "y n", "Ошибка: решение должно быть y/n"}
 	fieldListName    = Field{"listName", "Название списка", "string", `^.{1,}$`, "Ошибка: название списка должно содержать хотя бы один символ"}
 )
+
+var help = HelpT{
+	HelpEvent{
+		"evt add — добавить событие.\n" +
+			"После ввода команды будет предложено ввести данные о событии: \n" +
+			"\t- название (минимум один любой символ)\n" +
+			"\t- дата (в формате DD.MM.YYYY)\n" +
+			"\t- время (в формате hh:mm)\n" +
+			"\t- продолжительность (в формате hh:mm)\n" +
+			"\t- описание.\n\n" +
+			"Каждому событию присваивается уникальный id.\n",
+
+		"evt dlt — удалить событие.\n" +
+			"После ввода команды будет предложено ввести id события (натуральное число) и подтвердить удаление.\n",
+
+		"evt shw [argument] — показать события.\n" +
+			"В зависимости от аргумента далее будет предложено ввести различные данные для поиска:\n" +
+			"\t- all — вывод всех событий.\n" +
+			"\t- date — будет предложено ввести дату события (в формате DD.MM.YYYY). Вывод событий на конкретную дату.\n" +
+			"\t- desc — будет предложено ввести описание события. Вывод событий по описанию.\n" +
+			"\t- dur — будет предложено ввести продолжительность события (в формате hh:mm). Вывод событий по продолжительности.\n" +
+			"\t- id — будет предложено ввести id события (натуральное число). Вывод события по id.\n" +
+			"\t- intv — будет предложено ввести интервал (даты начала и конца интервала в формате DD.MM.YYYY).\n" +
+			"\tВывод событий в заданном интервале (включая крайние даты).\n" +
+			"\t- name — будет предложено ввести название события (минимум один любой символ). Вывод событий по имени.\n" +
+			"\t- time — будет предложено ввести дату и время события (в формате DD:MM:YYYY и hh:mm соответственно).\n" +
+			"\tВывод событий по дате и времени (выводятся события, которые активны, то есть учитывает продолжительность).\n"},
+
+	HelpList{
+		"lst add — добавить список.\n" +
+			"После ввода будет предложено ввести название нового списка (минимум один любой символ).\n",
+
+		"lst dlt — удалить список.\n" +
+			"После ввода команды будет предложено ввести название списка (минимум один любой символ) и подтвердить удаление.\n",
+
+		"lst shw — показать список.\n" +
+			"После ввода команды будет предложено ввести название списка (минимум один любой символ). Вывод всего списка.\n",
+
+		"lsts shw — показать все списки.\n" +
+			"Вывод всех списков.\n"},
+
+	HelpPurch{
+		"prch add — добавить заметку.\n" +
+			"После ввода команды будет предложено ввести данные о заметке:\n" +
+			"\t- название (минимум один любой символ)\n" +
+			"\t- описание.\n\n" +
+			"Каждой заметке присваивается уникальный id.\n",
+
+		"prch dlt — удалить заметку.\n" +
+			"После ввода команды будет предложено ввести данные о заметке и подтвердить удаление:\n" +
+			"\t- название списка (минимум один любой символ)\n" +
+			"\t- id заметки (натуральное число).\n"},
+
+	HelpExit{
+		"ext — выход из программы.\n"}}
 
 func AddEvent() {
 	var (
@@ -554,6 +636,59 @@ func DeletePurch() {
 		if !CheckErr(err, "Ошибка удаления из БД") {
 			return
 		}
+	}
+}
+
+func Help(input string) {
+	switch input {
+	case "help":
+		fmt.Println(help.evt.add)
+		fmt.Println(help.evt.dlt)
+		fmt.Println(help.evt.shw)
+
+		fmt.Println(help.ext.ext)
+
+		fmt.Println(help.lst.add)
+		fmt.Println(help.lst.dlt)
+		fmt.Println(help.lst.shw)
+		fmt.Println(help.lst.shwLists)
+
+		fmt.Println(help.prch.add)
+		fmt.Println(help.prch.dlt)
+	case "help evt":
+		fmt.Println(help.evt.add)
+		fmt.Println(help.evt.dlt)
+		fmt.Println(help.evt.shw)
+	case "help ext":
+		fmt.Println(help.ext.ext)
+	case "help lst":
+		fmt.Println(help.lst.add)
+		fmt.Println(help.lst.dlt)
+		fmt.Println(help.lst.shw)
+		fmt.Println(help.lst.shwLists)
+	case "help prch":
+		fmt.Println(help.prch.add)
+		fmt.Println(help.prch.dlt)
+	case "help evt add":
+		fmt.Println(help.evt.add)
+	case "help evt dlt":
+		fmt.Println(help.evt.dlt)
+	case "help evt shw":
+		fmt.Println(help.evt.shw)
+	case "help lst add":
+		fmt.Println(help.lst.add)
+	case "help lst dlt":
+		fmt.Println(help.lst.dlt)
+	case "help lst shw":
+		fmt.Println(help.lst.shw)
+	case "help lsts shw":
+		fmt.Println(help.lst.shwLists)
+	case "help prch add":
+		fmt.Println(help.prch.add)
+	case "help prch dlt":
+		fmt.Println(help.prch.dlt)
+	default:
+		fmt.Printf("Команды '%s' не существует\nДля уточнения информации по командам введите 'help'\n", input)
 	}
 }
 

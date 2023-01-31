@@ -46,7 +46,8 @@ func main() {
 		case input == "ext":
 			fmt.Println("Программа завершена")
 			return
-		//case strings.HasPrefix(input, "help"):
+		case strings.HasPrefix(input, "help"):
+			Help(input)
 		default:
 			fmt.Printf("Команды '%s' не существует\nДля уточнения информации по командам введите 'help'\n", input)
 		}
